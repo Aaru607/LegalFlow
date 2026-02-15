@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Dependency from '@/models/Dependency';
+import { IDependency } from "@/models/Dependency";
 import Task from '@/models/Task';
 import { wouldCreateCycle } from '@/lib/topologicalSort';
 
