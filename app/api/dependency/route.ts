@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Dependency from '@/models/Dependency';
+import { IDependency } from "@/models/Dependency";
 import Task from '@/models/Task';
 import { wouldCreateCycle } from '@/lib/topologicalSort';
 
@@ -57,7 +58,9 @@ export async function POST(request: Request) {
     }
     
     // CRITICAL: Check for cycles before creating dependency
-    const allDependencies = await Dependency.find({ userId: user.id }).lean();
+    const rawDependencies = await Dependency.find({ userId: user.id }).lean();
+    const allDependencies = rawDependencies as unknown as IDependency[];
+
     
     if (wouldCreateCycle(allDependencies, providerId, dependentId)) {
       return NextResponse.json(
