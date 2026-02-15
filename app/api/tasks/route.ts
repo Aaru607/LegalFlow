@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Task from '@/models/Task';
 import Dependency from '@/models/Dependency';
+import type { ITask } from '@/models/Task';
+import type { IDependency } from '@/models/Dependency';
 import { topologicalSort, isTaskUnlocked } from '@/lib/topologicalSort';
 
 export async function GET() {
@@ -14,8 +16,8 @@ export async function GET() {
     
     await dbConnect();
     
-    const tasks = await Task.find({ userId: user.id }).lean();
-    const dependencies = await Dependency.find({ userId: user.id }).lean();
+    const tasks = (await Task.find({ userId: user.id }).lean()) as unknown as ITask[];
+    const dependencies = (await Dependency.find({ userId: user.id }).lean()) as unknown as IDependency[];
     
     // Apply topological sort
     const { sortedTasks, hasCycle } = topologicalSort(tasks, dependencies);

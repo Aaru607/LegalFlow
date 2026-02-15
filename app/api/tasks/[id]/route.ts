@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Task from '@/models/Task';
 import Dependency from '@/models/Dependency';
+import type { ITask } from '@/models/Task';
+import type { IDependency } from '@/models/Dependency';
 import { isTaskUnlocked } from '@/lib/topologicalSort';
 
 export async function PATCH(
@@ -34,8 +36,8 @@ export async function PATCH(
     
     // If trying to complete the task, check if it's unlocked
     if (completed && !task.completed) {
-      const allTasks = await Task.find({ userId: user.id }).lean();
-      const dependencies = await Dependency.find({ userId: user.id }).lean();
+      const allTasks = (await Task.find({ userId: user.id }).lean()) as unknown as ITask[];
+      const dependencies = (await Dependency.find({ userId: user.id }).lean()) as unknown as IDependency[];
       
       const isUnlocked = isTaskUnlocked(params.id, allTasks, dependencies);
       
