@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
     
     // CRITICAL: Check for cycles before creating dependency
-    const allDependencies = await Dependency.find({ userId: user.id }).lean();
+    const allDependencies = (await Dependency.find({ userId: user.id }).lean()) as IDependency[];
     
     if (wouldCreateCycle(allDependencies, providerId, dependentId)) {
       return NextResponse.json(
