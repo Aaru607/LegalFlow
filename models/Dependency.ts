@@ -2,7 +2,6 @@ import mongoose, { Schema, model, models, Document } from 'mongoose';
 
 // TypeScript interface for Dependency
 export interface IDependency extends Document {
-  _id: string;
   userId: string;
   providerId: string; // Task that must be completed first
   dependentId: string; // Task that depends on provider
