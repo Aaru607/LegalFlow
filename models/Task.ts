@@ -2,7 +2,6 @@ import mongoose, { Schema, model, models, Document } from 'mongoose';
 
 // TypeScript interface for Task
 export interface ITask extends Document {
-  _id: string;
   userId: string;
   name: string;
   completed: boolean;
