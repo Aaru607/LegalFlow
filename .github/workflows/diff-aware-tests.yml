@@ -63,12 +63,6 @@ jobs:
             echo "No .env.example found — skip"
           fi
 
-      # -------- Dependency Audit --------
-        - name: Dependency security audit (non-blocking)
-          run: |
-                echo "Running npm audit (non-blocking)..."
-                npm audit --audit-level=high || true
-
       # -------- Next.js Build --------
       - name: Build verification
         run: |
