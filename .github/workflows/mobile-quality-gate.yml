@@ -1,0 +1,56 @@
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  validate-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript Check
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          else
+            echo "Skipping TypeScript check"
+          fi
+
+      - name: ESLint Check
+        run: |
+          if [ -f .eslintrc.json ] || [ -f eslint.config.js ]; then
+            npx eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0
+          else
+            echo "Skipping ESLint check"
+          fi
+
+  run-tests:
+    runs-on: ubuntu-latest
+    needs: validate-code
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Jest
+        run: |
+          if [ -f jest.config.js ] || [ -f jest.config.ts ]; then
+            npx jest --ci --coverage
+          else
+            echo "Skipping Jest"
+          fi
