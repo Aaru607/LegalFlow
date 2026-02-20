@@ -1,0 +1,51 @@
+name: Diff Aware Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - dev_features
+      - dev
+      - main
+
+jobs:
+  diff-aware-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Validation
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          else
+            echo "No TypeScript config found"
+          fi
+
+      - name: Detect Changed Files
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }})
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          echo "changed=$CHANGED_FILES" >> $GITHUB_OUTPUT
+
+      - name: Run Related Jest Tests
+        run: |
+          if [ -z "${{ steps.diff.outputs.changed }}" ]; then
+            echo "No changes detected"
+            exit 0
+          fi
+
+          npx jest --findRelatedTests ${{ steps.diff.outputs.changed }} --coverage --ci
