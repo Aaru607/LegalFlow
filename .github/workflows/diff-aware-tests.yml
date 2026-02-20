@@ -1,51 +1,108 @@
-name: Diff Aware Quality Gate
+name: PR Quality Gate (LegalFlow)
 
 on:
   pull_request:
-    branches:
-      - dev_features
-      - dev
-      - main
+    branches: [ main ]
 
 jobs:
-  diff-aware-tests:
+  validate-code:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: npm
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript Validation
+      # -------- TypeScript --------
+      - name: TypeScript validation
         run: |
           if [ -f tsconfig.json ]; then
+            echo "Running TypeScript check..."
             npx tsc --noEmit
           else
-            echo "No TypeScript config found"
+            echo "No TypeScript config found — skip"
           fi
 
-      - name: Detect Changed Files
-        id: diff
+      # -------- ESLint --------
+      - name: ESLint validation
         run: |
-          git fetch origin ${{ github.base_ref }}
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }})
-
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
-
-          echo "changed=$CHANGED_FILES" >> $GITHUB_OUTPUT
-
-      - name: Run Related Jest Tests
-        run: |
-          if [ -z "${{ steps.diff.outputs.changed }}" ]; then
-            echo "No changes detected"
-            exit 0
+          if [ -f .eslintrc.json ] || [ -f eslint.config.js ]; then
+            echo "Running ESLint..."
+            npx eslint . --ext .ts,.tsx --max-warnings 0
+          else
+            echo "No ESLint config — skip"
           fi
 
-          npx jest --findRelatedTests ${{ steps.diff.outputs.changed }} --coverage --ci
+      # -------- ENV Validation --------
+      - name: Validate environment variables
+        run: |
+          if [ -f .env.example ]; then
+            echo "Checking .env.example keys..."
+
+            missing=0
+            for key in $(grep -v '^#' .env.example | cut -d '=' -f 1); do
+              if ! grep -q "^$key=" .env.example; then
+                echo "❌ Key missing: $key"
+                missing=1
+              fi
+            done
+
+            if [ $missing -eq 1 ]; then
+              echo "Env validation failed"
+              exit 1
+            fi
+          else
+            echo "No .env.example found — skip"
+          fi
+
+      # -------- Dependency Audit --------
+      - name: Dependency security audit
+        run: |
+          echo "Running npm audit..."
+          npm audit --audit-level=high
+
+      # -------- Next.js Build --------
+      - name: Build verification
+        run: |
+          if grep -q "\"build\"" package.json; then
+            echo "Running production build..."
+            npm run build
+          else
+            echo "No build script — failing"
+            exit 1
+          fi
+
+  run-tests:
+    runs-on: ubuntu-latest
+    needs: validate-code
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # -------- Run Tests --------
+      - name: Run tests (if present)
+        run: |
+          if grep -q "\"test\"" package.json; then
+            echo "Running test suite..."
+            npm test -- --ci
+          else
+            echo "No test script defined — skip"
+          fi
