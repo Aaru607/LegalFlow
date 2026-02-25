@@ -1,0 +1,40 @@
+name: Web Release Logger
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+
+jobs:
+  log-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute Metadata
+        run: |
+          echo "BUILD=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          echo "VERSION=1.0.${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "NOTES=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
+
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "STATUS=Stable" >> $GITHUB_ENV
+          else
+            echo "STATUS=Unstable" >> $GITHUB_ENV
+          fi
+
+      - name: Update Google Sheet
+        run: |
+          curl -X POST "${{ secrets.SCRIPT_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "version": "'"$VERSION"'",
+              "build": "'"$BUILD"'",
+              "status": "'"$STATUS"'",
+              "commit": "'"$COMMIT"'",
+              "notes": "'"$NOTES"'"
+            }'
