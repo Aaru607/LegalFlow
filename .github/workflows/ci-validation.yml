@@ -1,0 +1,113 @@
+name: LegalFlow CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: legalflow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ========================================
+  # FAST FAIL SANITY CHECKS
+  # ========================================
+  sanity:
+    name: Sanity Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate lockfile
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "❌ package-lock.json missing"
+            exit 1
+          fi
+
+      - name: Validate env template
+        run: |
+          if [ ! -f .env.example ]; then
+            echo "❌ .env.example missing"
+            exit 1
+          fi
+
+  # ========================================
+  # VALIDATION & BUILD
+  # ========================================
+  validate-build:
+    name: Validate & Build
+    runs-on: ubuntu-latest
+    needs: sanity
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # -------- TypeScript Validation --------
+      - name: TypeScript Check
+        run: |
+          if [ -f tsconfig.json ]; then
+            echo "Running TypeScript validation..."
+            npx tsc --noEmit
+          else
+            echo "❌ tsconfig.json missing"
+            exit 1
+          fi
+
+      # -------- ESLint Validation --------
+      - name: ESLint Check
+        run: |
+          echo "Running ESLint..."
+          npm run lint -- --max-warnings 0
+
+      # -------- Jest Tests --------
+      - name: Run Jest Tests
+        run: |
+          echo "Running test suite..."
+          npm test -- --ci --runInBand
+
+      # -------- Next.js Build Check --------
+      - name: Build Verification
+        env:
+          MONGODB_URI: "mongodb://dummy-value-for-build"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "dummy"
+          CLERK_SECRET_KEY: "dummy"
+        run: |
+          echo "Running Next.js production build..."
+          npm run build
+
+  # ========================================
+  # SECURITY CHECK
+  # ========================================
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: validate-build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (high severity)
+        run: npm audit --audit-level=high
